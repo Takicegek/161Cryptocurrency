@@ -1,0 +1,3 @@
+1. The current Bitcoin difficulty is 60,883,825,480, according to https://bitcoinwisdom.com/bitcoin/difficulty. This was accessed on 10/21 at 2:19 PM.
+
+2. 
