@@ -23,7 +23,25 @@ struct blockchain_node {
 	struct blockchain_node *parent;
 	struct block b;
 	int is_valid;
+	//edited the struct to help build the tree for step 1 ~~~
+	struct blockchain_node *first_child;
+	struct blockchain_node *next_sibling;
 };
+
+/* Made a tree struct for step 1 ~~~ */
+struct Tree {
+	struct blockchain_node root;
+	struct int size;
+}
+
+/* I think we need to create an insert function to add things to the tree. ~~~*/
+/* returns 1 if successful, 0 if there was an error */
+int insert(blockchain_node node, Tree t) {
+	//start at root
+	//something
+	t->size++;
+}
+
 
 /* A simple linked list to keep track of account balances. */
 struct balance {
@@ -65,6 +83,21 @@ static struct balance *balance_add(struct balance *balances,
 
 	return p;
 }
+/*FINISH FOR STEP1 */
+/*Wrote helper function to determine if a block is valid */
+bool blockchain_node_is_valid(blockchain_node node) {
+    if (node.height == 0 && node.hash != GENESIS_BLOCK_HASH) { //haven't looked into how to get height or hash yet
+        return false;
+    } else if (!hash_output_is_below_target(node)) {
+        return false;
+    } else if (reward_tx.prev_transaction_hash != 0 || reward_tx.src_signature.r != 0 || reward_tx.src_signature.s !=0) {
+        return false;
+    } else if (normal_tx.prev_transaction_hash == 0) {
+        return false;
+        //There is no normal transaction in this block
+    } else if (transaction_hash(node))
+}
+
 
 int main(int argc, char *argv[])
 {
@@ -89,6 +122,12 @@ int main(int argc, char *argv[])
 
 	/* Organize into a tree, check validity, and output balances. */
 	/* TODO */
+    if (blockchain_node_is_valid(node)) {
+        //organize into a tree using the Tree struct I created
+        Tree
+    }
+
+    
 
 	struct balance *balances = NULL, *p, *next;
 	/* Print out the list of balances. */
