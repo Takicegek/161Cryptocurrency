@@ -22,25 +22,8 @@ const hash_output GENESIS_BLOCK_HASH = {
 struct blockchain_node {
 	struct blockchain_node *parent;
 	struct block b;
-	int is_valid;
-	//edited the struct to help build the tree for step 1 ~~~
-	struct blockchain_node *first_child;
+	bool is_valid;
 };
-
-/* Made a tree struct for step 1 ~~~ */
-struct Tree {
-	struct blockchain_node root;
-	struct int size;
-}
-
-/* I think we need to create an insert function to add things to the tree. ~~~*/
-/* returns 1 if successful, 0 if there was an error */
-int insert(blockchain_node node, Tree t) {
-	//start at root
-	//something
-	t->size++;
-}
-
 
 /* A simple linked list to keep track of account balances. */
 struct balance {
@@ -83,7 +66,13 @@ static struct balance *balance_add(struct balance *balances,
 	return p;
 }
 
-/*Wrote helper function to determine if a block is valid */
+/*Function to test blockchain_node_is_valid */
+void test_valid_blockchain_node() {
+
+	printf(blockchain_node_is_valid(test));
+}
+
+/*Wrote helper function to determine if a block is valid. It changes the is_valid field to true if it is. */
 /* To check if a block is valid, we must check:
  * - height:
  		genesis block OR
@@ -104,7 +93,7 @@ bool blockchain_node_is_valid(blockchain_node node) {
     if (blocks_height == 0 && byte32_cmp(GENESIS_BLOCK_HASH, h) != 0) { 
         return false; 
         //is the genesis block, but SHA256 hash isn't the right value
-    } else if (blocks_height >= 1 && (blockchain_node_is_valid(node->parent) == false || node->parent->b->height != (blocks_height - 1))) {
+    } else if (blocks_height >= 1 && node->parent->is_valid == false || node->parent->b->height != (blocks_height - 1))) {
     	return false; 
     	//isn't the genesis block and its parent isn't valid or doesn't have a height that is 1 smaller
     } else if (hash_output_is_below_target(hash_output) == 0) {
@@ -196,11 +185,8 @@ int main(int argc, char *argv[])
 	/* Organize into a tree, check validity, and output balances. */
 	/* TODO */
     if (blockchain_node_is_valid(node)) {
-        //organize into a tree using the Tree struct I created
-        Tree
+        //organize into a tree
     }
-
-    
 
 	struct balance *balances = NULL, *p, *next;
 	/* Print out the list of balances. */
