@@ -117,23 +117,56 @@ bool blockchain_node_is_valid(blockchain_node node) {
         return false;
         //reward_tx's prev_transaction_hash, src_signature.r, or src_signature.s are not all 0
     } else if (node->b->normal_tx->prev_transaction_hash != 0) {
-    	//there is a normal transaction in the block, so we need to check more stuff:
+    	//there is a normal transaction in the block, so we need to check a bunch more stuff:
+    	
     	blockchain_node n = node;
     	int flag = 0;
+    	int transaction_verify_result = 100; //changed to 0 if successful, -1 if runtime error, 0 if invalid
     	//flag changes to 1 if normal_tx.prev_transaction_hash exists as either the reward_tx or normal_tx of any ancestor blocks
+    	hash_output r_tx;
+    	hash_output n_tx;
     	
-    	while (n->parent) { 
-    		if (n->parent->b->reward_tx == node->b->normal_tx->prev_transaction_hash || n->parent->b->reward_tx == node->b->normal_tx->prev_transaction_hash) {
+    	while (n->parent) { //while you haven't gone through all of the nodes
+    		transaction_hash(n->parent->b->reward_tx, r_tx);
+    		transaction_hash(n->parent->b->normal_tx, n_tx);
+
+    		if (r_tx == node->b->normal_tx->prev_transaction_hash) { 
+    			//the transaction matches the normal_tx of this ancestor block
     			flag = 1;
-    			break;
+    			if (transaction_verify(*node->b->normal_tx, *n_tx) != 1)) {
+					if (transaction_verify(*node->b->normal_tx, *n_tx) == -1) {
+						printf("RUNTIME ERROR FOR transaction_verify\n");
+					}
+				return false;
+			//signature on normal_tx isn't valid using the dest_pubkey of the previous transaction that has hash value normal_tx.prev_transaction_hash
+    			}
+    		
+    		break;
+
+    		} else if(n_tx == node->b->reward_tx->prev_transaction_hash){
+    			//the transaction matches the reward_tx of this ancestor block -- do the same thing as before but with r_tx
+    			flag = 1;
+    			if (transaction_verify(*node->b->normal_tx, *r_tx) != 1)) {
+					if (transaction_verify(*node->b->normal_tx, *r_tx) == -1) {
+						printf("RUNTIME ERROR FOR transaction_verify\n");
+					}
+				return false;
+			//signature on normal_tx isn't valid using the dest_pubkey of the previous transaction that has hash value normal_tx.prev_transaction_hash
+    			}
+
+    		break;
+
+    		} else if (n->parent->b->normal_tx->prev_transaction_hash == node->b->normal_tx->prev_transaction_hash) {
+    			return false;
+    			//this ancestor block has the same normal_tx.prev_transaction_hash, so the coin has already been spent
     		} else {
     		n = n->parent; //continue backtracking
     		}
     	}
-    	if (flag == 0) {
+    	if (flag == 0) { 
     		return false;
     	}
-    }
+    } //close this giant if block
 	//made it!
 	return true;
 }
