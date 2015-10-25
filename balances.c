@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <openssl/ec.h>
 
@@ -66,12 +67,6 @@ static struct balance *balance_add(struct balance *balances,
 	return p;
 }
 
-/*Function to test blockchain_node_is_valid */
-void test_valid_blockchain_node() {
-
-	printf(blockchain_node_is_valid(test));
-}
-
 /*Wrote helper function to determine if a block is valid. It changes the is_valid field to true if it is. */
 /* To check if a block is valid, we must check:
  * - height:
@@ -85,18 +80,18 @@ void test_valid_blockchain_node() {
  		signature is valid
  		coin must not have already been spent
 */
-bool blockchain_node_is_valid(blockchain_node node) {
+bool blockchain_node_is_valid(struct blockchain_node node) {
 	hash_output h;
-	block_hash(*node->b, h);
+	block_hash(node->b, h);
 	uint32_t blocks_height = node->b->height;
 
     if (blocks_height == 0 && byte32_cmp(GENESIS_BLOCK_HASH, h) != 0) { 
         return false; 
         //is the genesis block, but SHA256 hash isn't the right value
-    } else if (blocks_height >= 1 && node->parent->is_valid == false || node->parent->b->height != (blocks_height - 1))) {
+    } else if (blocks_height >= 1 && node->parent->is_valid == false || node->parent->b->height != (blocks_height - 1)) {
     	return false; 
     	//isn't the genesis block and its parent isn't valid or doesn't have a height that is 1 smaller
-    } else if (hash_output_is_below_target(hash_output) == 0) {
+    } else if (hash_output_is_below_target(h) == 0) {
         return false; 
         //hash of the block is >= TARGET_HASH
     } else if (node->b->reward_tx->height != blocks_height || node->b->normal_tx->height != blocks_height) {
@@ -108,9 +103,8 @@ bool blockchain_node_is_valid(blockchain_node node) {
     } else if (node->b->normal_tx->prev_transaction_hash != 0) {
     	//there is a normal transaction in the block, so we need to check a bunch more stuff:
     	
-    	blockchain_node n = node;
+    	struct blockchain_node n = node;
     	int flag = 0;
-    	int transaction_verify_result = 100; //changed to 0 if successful, -1 if runtime error, 0 if invalid
     	//flag changes to 1 if normal_tx.prev_transaction_hash exists as either the reward_tx or normal_tx of any ancestor blocks
     	hash_output r_tx;
     	hash_output n_tx;
@@ -122,7 +116,7 @@ bool blockchain_node_is_valid(blockchain_node node) {
     		if (r_tx == node->b->normal_tx->prev_transaction_hash) { 
     			//the transaction matches the normal_tx of this ancestor block
     			flag = 1;
-    			if (transaction_verify(*node->b->normal_tx, *n_tx) != 1)) {
+    			if (transaction_verify(*node->b->normal_tx, *n_tx) != 1) {
 					if (transaction_verify(*node->b->normal_tx, *n_tx) == -1) {
 						printf("RUNTIME ERROR FOR transaction_verify\n");
 					}
@@ -135,7 +129,7 @@ bool blockchain_node_is_valid(blockchain_node node) {
     		} else if(n_tx == node->b->reward_tx->prev_transaction_hash){
     			//the transaction matches the reward_tx of this ancestor block -- do the same thing as before but with r_tx
     			flag = 1;
-    			if (transaction_verify(*node->b->normal_tx, *r_tx) != 1)) {
+    			if (transaction_verify(*node->b->normal_tx, *r_tx) != 1) {
 					if (transaction_verify(*node->b->normal_tx, *r_tx) == -1) {
 						printf("RUNTIME ERROR FOR transaction_verify\n");
 					}
@@ -184,7 +178,7 @@ int main(int argc, char *argv[])
 
 	/* Organize into a tree, check validity, and output balances. */
 	/* TODO */
-    if (blockchain_node_is_valid(node)) {
+    if (blockchain_node_is_valid()) {
         //organize into a tree
     }
 
