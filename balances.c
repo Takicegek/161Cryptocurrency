@@ -25,7 +25,6 @@ struct blockchain_node {
 	int is_valid;
 	//edited the struct to help build the tree for step 1 ~~~
 	struct blockchain_node *first_child;
-	struct blockchain_node *next_sibling;
 };
 
 /* Made a tree struct for step 1 ~~~ */
@@ -83,19 +82,60 @@ static struct balance *balance_add(struct balance *balances,
 
 	return p;
 }
-/*FINISH FOR STEP1 */
+
 /*Wrote helper function to determine if a block is valid */
+/* To check if a block is valid, we must check:
+ * - height:
+ 		genesis block OR
+ 		parent must be valid
+ * - hash of the block
+ * - height of transactions equal block's height
+ * - reward transactions are not signed and don't come from another public key
+ * - normal transaction in the block
+ 		transaction referenced must exist
+ 		signature is valid
+ 		coin must not have already been spent
+*/
 bool blockchain_node_is_valid(blockchain_node node) {
-    if (node.height == 0 && node.hash != GENESIS_BLOCK_HASH) { //haven't looked into how to get height or hash yet
+	hash_output h;
+	block_hash(*node->b, h);
+	uint32_t blocks_height = node->b->height;
+
+    if (blocks_height == 0 && byte32_cmp(GENESIS_BLOCK_HASH, h) != 0) { 
+        return false; 
+        //is the genesis block, but SHA256 hash isn't the right value
+    } else if (blocks_height >= 1 && (blockchain_node_is_valid(node->parent) == false || node->parent->b->height != (blocks_height - 1))) {
+    	return false; 
+    	//isn't the genesis block and its parent isn't valid or doesn't have a height that is 1 smaller
+    } else if (hash_output_is_below_target(hash_output) == 0) {
+        return false; 
+        //hash of the block is >= TARGET_HASH
+    } else if (node->b->reward_tx->height != blocks_height || node->b->normal_tx->height != blocks_height) {
+    	return false;
+    	//height of either of the block's transactions aren't equal to the block's height
+    } else if (byte32_is_zero(node->b->reward_tx->prev_transaction_hash) == 0 || byte32_is_zero(node->b->reward_tx->src_signature->r) == 0 || byte32_is_zero(node->b->reward_tx->src_signature->s) ==0) {
         return false;
-    } else if (!hash_output_is_below_target(node)) {
-        return false;
-    } else if (reward_tx.prev_transaction_hash != 0 || reward_tx.src_signature.r != 0 || reward_tx.src_signature.s !=0) {
-        return false;
-    } else if (normal_tx.prev_transaction_hash == 0) {
-        return false;
-        //There is no normal transaction in this block
-    } else if (transaction_hash(node))
+        //reward_tx's prev_transaction_hash, src_signature.r, or src_signature.s are not all 0
+    } else if (node->b->normal_tx->prev_transaction_hash != 0) {
+    	//there is a normal transaction in the block, so we need to check more stuff:
+    	blockchain_node n = node;
+    	int flag = 0;
+    	//flag changes to 1 if normal_tx.prev_transaction_hash exists as either the reward_tx or normal_tx of any ancestor blocks
+    	
+    	while (n->parent) { 
+    		if (n->parent->b->reward_tx == node->b->normal_tx->prev_transaction_hash || n->parent->b->reward_tx == node->b->normal_tx->prev_transaction_hash) {
+    			flag = 1;
+    			break;
+    		} else {
+    		n = n->parent; //continue backtracking
+    		}
+    	}
+    	if (flag == 0) {
+    		return false;
+    	}
+    }
+	//made it!
+	return true;
 }
 
 
