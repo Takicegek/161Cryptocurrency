@@ -319,6 +319,24 @@ void decrement_prev_transaction(struct balance *balances, hash_output hash, stru
 	}
 }
 
+/*STEP 2: mine a new block that transfers a coin from the weak public key to mykey.priv */
+
+/* Build on top of the head of the main chain. */
+block_init(&newblock, &headblock);
+/* Give the reward to us. */
+transaction_set_dest_privkey(&newblock.reward_tx, mykey);
+/* The last transaction was in block 4. */
+transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
+/* Send it to us. */
+transaction_set_dest_privkey(&newblock.normal_tx, mykey);
+/* Sign it with the guessed private key. */
+transaction_sign(&newblock.normal_tx, weakkey);
+/* Mine the new block. */
+block_mine(&newblock);
+/* Save to a file. */
+block_write_filename(&newblock, "myblock1.blk");
+
+
 int main(int argc, char *argv[])
 {
 	int i;
