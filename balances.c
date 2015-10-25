@@ -123,25 +123,37 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
     struct block *bl_ptr = &node->b;
     block_hash(&node->b, h);
     uint32_t blocks_height = bl_ptr->height;
+    printf("ready to begin\n");
     
     if (blocks_height == 0 && byte32_cmp(GENESIS_BLOCK_HASH, h) != 0) {
+    	    printf("is the genesis block, but SHA256 hash isn't the right value\n");
+
         return false;
         //is the genesis block, but SHA256 hash isn't the right value
     } else if (blocks_height >= 1 && (node->parent->is_valid == false || node->parent->b.height != (blocks_height - 1))) {
+    	    printf("its parent isn't valid or doesn't have a height that is 1 smaller\n");
+
         return false;
         //isn't the genesis block and its parent isn't valid or doesn't have a height that is 1 smaller
     } else if (hash_output_is_below_target(h) == 0) {
+    	    printf("hash of the block is >= TARGET_HASH\n");
+
         return false;
         //hash of the block is >= TARGET_HASH
     } else if (bl_ptr->reward_tx.height != blocks_height || bl_ptr->normal_tx.height != blocks_height) {
+    	    printf("height of either of the block's transactions aren't equal to the block's height\n");
+
         return false;
         //height of either of the block's transactions aren't equal to the block's height
     } else if (byte32_is_zero(bl_ptr->reward_tx.prev_transaction_hash) == 0 || byte32_is_zero(bl_ptr->reward_tx.src_signature.r) == 0 || byte32_is_zero(bl_ptr->reward_tx.src_signature.s) ==0) {
+           printf("reward_tx's prev_transaction_hash, src_signature.r, or src_signature.s are not all 0\n");
+
         return false;
         //reward_tx's prev_transaction_hash, src_signature.r, or src_signature.s are not all 0
     } else if (bl_ptr->normal_tx.prev_transaction_hash != 0) {
         //there is a normal transaction in the block, so we need to check a bunch more stuff:
-        
+            printf("there is a normal transaction in the block, so we need to check a bunch more stuff:\n");
+
         struct blockchain_node *n = node;
         int flag = 0;
         //flag changes to 1 if normal_tx.prev_transaction_hash exists as either the reward_tx or normal_tx of any ancestor blocks
@@ -151,24 +163,35 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
         while (n->parent) { //while you haven't gone through all of the nodes
             transaction_hash(&(n->parent->b.reward_tx), r_tx);
             transaction_hash(&(n->parent->b.normal_tx), n_tx);
+                printf("start loop\n");
+
             
             if (r_tx == bl_ptr->normal_tx.prev_transaction_hash) {
                 //the transaction matches the normal_tx of this ancestor block
                 flag = 1;
+                    printf("1\n");
+
                 if (transaction_verify(&bl_ptr->normal_tx, &n->b.normal_tx) != 1) {
+                	    printf("2\n");
+
                     if (transaction_verify(&bl_ptr->normal_tx, &n->b.normal_tx) == -1) {
                         printf("RUNTIME ERROR FOR transaction_verify\n");
                     }
                     return false;
+
                     //signature on normal_tx isn't valid using the dest_pubkey of the previous transaction that has hash value normal_tx.prev_transaction_hash
                 }
                 
                 break;
                 
             } else if(n_tx == bl_ptr->reward_tx.prev_transaction_hash){
+            	    printf("1a\n");
+
                 //the transaction matches the reward_tx of this ancestor block -- do the same thing as before but with r_tx
                 flag = 1;
                 if (transaction_verify(&bl_ptr->normal_tx, &n->b.reward_tx) != 1) {
+                	    printf("2a\n");
+
                     if (transaction_verify(&bl_ptr->normal_tx, &n->b.reward_tx) == -1) {
                         printf("RUNTIME ERROR FOR transaction_verify\n");
                     }
@@ -179,6 +202,8 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
                 break;
                 
             } else if (n->parent->b.normal_tx.prev_transaction_hash == bl_ptr->normal_tx.prev_transaction_hash) {
+            	    printf("coin already spent\n");
+
                 return false;
                 //this ancestor block has the same normal_tx.prev_transaction_hash, so the coin has already been spent
             } else {
@@ -186,10 +211,12 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
             }
         }
         if (flag == 0) { 
+        	    printf("flag was raised\n");
             return false;
-        }
+        } 
     } //close this giant if block
     //made it!
+    printf("block is valid!!!\n");
     return true;
 }
 
@@ -207,8 +234,10 @@ struct blockchain_node *process_blockchain(struct blockchain_node *head) {
 			iter->parent = find_parent(current->prev_block_hash, head);			
 		}
 		if (blockchain_node_is_valid(iter)) {
+			printf("valid\n");
 			iter->is_valid = true;
 		}
+		printf("not valid\n");
 		iter = iter->next;
 	}
 
