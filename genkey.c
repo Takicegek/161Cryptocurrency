@@ -85,12 +85,20 @@ int main(int argc, char *argv[])
 	}
 
 	filename = argv[1];
+	printf("Starting main function and got file to be: %s\n", filename);
 
 	key = generate_identical_key();
 	if (key == NULL) {
 		fprintf(stderr, "error generating key\n");
 		exit(1);
 	}
+
+	rc = key_write_filename(filename, key);
+	if (rc != 1) {
+		fprintf(stderr, "error saving key\n");
+		exit(1);
+	}
+
 
 	/* Desired normal_tx destination from == BLOCK 0000005ef8689e29b57aea00695141bfabcd63a7a9d311270c63b76a2fc2e2f3 ==
 		in file 2fc2e2f3.blk
@@ -101,30 +109,47 @@ int main(int argc, char *argv[])
  	*dest_pubkey_x = d8a9b4c603833a8586c5389e167d25e9e5dd33ad3c2c95be1c35c2dcded699b5;
  	*dest_pubkey_y = 67ed4bd4dc7eee5d8789fd7d3d2af96dbdfb967911fd812d9c5fc5486c9aea1f;
 */
-	const EC_GROUP *ec_group = EC_KEY_get0_group(key);
-	BIGNUM *x, *y;
+	printf("finished all key stuff, now trying to compare\n");
+
 	int get_pt_result;
 
-	x = BN_new();
-	if (x == NULL)
-		goto err;
-	y = BN_new();
-	if (y == NULL)
-		goto err;
-
-	const EC_POINT *pubkey = EC_KEY_get0_public_key(key);
-	//printf("%s\n", pubkey->X);
-
-	pubkey = EC_POINT_new(EC_KEY_get0_group(key));
-	if (pubkey == NULL) {
+	BIGNUM *x = BN_new();
+	BIGNUM *y = BN_new();
+	printf("called BN_new\n");
+	
+	if (x == NULL || y == NULL) {
+		printf("x or y errors\n");
+		BN_free(x);
+		BN_free(y);
 		EC_KEY_free(key);
-		printf("error\n");
+		exit(1);
 	}
 
+	printf("finished making BIGNUMs x and y\n");
+
+	//const EC_GROUP *ec_group = EC_KEY_get0_group(key);
+	const EC_GROUP *ec_group = EC_GROUP_new_by_curve_name(EC_GROUP_NID); //trying this instead
+	printf("finished making EC_GROUP\n");
+
+	const EC_POINT *pubkey;
+	//pubkey = EC_KEY_get0_public_key(key);
+	pubkey = EC_POINT_new(EC_KEY_get0_group(key)); 
+	if (pubkey == NULL) {
+		EC_KEY_free(key);
+		printf("error in EC_POINT pubkey\n");
+		exit(1);
+	}
+
+	printf("finished making EC_POINT, got to before call function\n");
  	get_pt_result = EC_POINT_get_affine_coordinates_GFp(ec_group, pubkey, x, y, NULL);
 	if (get_pt_result != 1) {
-		goto err;
+		printf("error with the big function\n");
+		BN_free(x);
+		BN_free(y);
+		EC_KEY_free(key);
+		exit(1);
 	} else {
+		printf("got here, right before printing\n");
         BN_print_fp(stdout, x);
         putc('\n', stdout);
         BN_print_fp(stdout, y);
@@ -138,18 +163,6 @@ int main(int argc, char *argv[])
 */
 	BN_free(x);
 	BN_free(y);
-
-err:
-	if (x != NULL)
-		BN_free(x);
-	if (y != NULL)
-		BN_free(y);
-
-	rc = key_write_filename(filename, key);
-	if (rc != 1) {
-		fprintf(stderr, "error saving key\n");
-		exit(1);
-	}
 
 	EC_KEY_free(key);
 
