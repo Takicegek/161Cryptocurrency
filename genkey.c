@@ -57,12 +57,103 @@ static EC_KEY *generate_key(void)
 		EC_KEY_free(key);
 		return NULL;
 	}
-
 	return key;
+}
+
+/*STEP 2*/
+static EC_KEY *generate_identical_key(void)
+{
+	unsigned char buf[32];
+	int i;
+	srand(1234);
+	for (i = 0; i < 32; i++) {
+		buf[i] = rand() & 0xff;
+	}
+	return generate_key_from_buffer(buf);
 }
 
 int main(int argc, char *argv[])
 {
+	/*modified main function for step 2 */
+	const char *filename;
+	EC_KEY *key;
+	int rc;
+
+	if (argc != 2) {
+		fprintf(stderr, "need an output filename\n");
+		exit(1);
+	}
+
+	filename = argv[1];
+
+	key = generate_identical_key();
+	if (key == NULL) {
+		fprintf(stderr, "error generating key\n");
+		exit(1);
+	}
+
+	/* Desired normal_tx destination from == BLOCK 0000005ef8689e29b57aea00695141bfabcd63a7a9d311270c63b76a2fc2e2f3 ==
+		in file 2fc2e2f3.blk
+  */
+		/*
+ 	unsigned char *dest_pubkey_x;
+ 	unsigned char *dest_pubkey_y;
+ 	*dest_pubkey_x = d8a9b4c603833a8586c5389e167d25e9e5dd33ad3c2c95be1c35c2dcded699b5;
+ 	*dest_pubkey_y = 67ed4bd4dc7eee5d8789fd7d3d2af96dbdfb967911fd812d9c5fc5486c9aea1f;
+*/
+	const EC_GROUP *ec_group = EC_KEY_get0_group(key);
+	BIGNUM *x, *y;
+	int get_pt_result;
+
+	x = BN_new();
+	if (x == NULL)
+		goto err;
+	y = BN_new();
+	if (y == NULL)
+		goto err;
+
+	const EC_POINT *pubkey = EC_KEY_get0_public_key(key);
+	//printf("%s\n", pubkey->X);
+
+	pubkey = EC_POINT_new(EC_KEY_get0_group(key));
+	if (pubkey == NULL) {
+		EC_KEY_free(key);
+		printf("error\n");
+	}
+
+ 	get_pt_result = EC_POINT_get_affine_coordinates_GFp(ec_group, pubkey, x, y, NULL);
+	if (get_pt_result != 1) {
+		goto err;
+	} else {
+        BN_print_fp(stdout, x);
+        putc('\n', stdout);
+        BN_print_fp(stdout, y);
+        putc('\n', stdout);
+    }
+/*
+	if (bn2bin(x, dest_pubkey_x, sizeof(dest_pubkey_x)) != 1)
+		goto err;
+	if (bn2bin(y, dest_pubkey_y, sizeof(dest_pubkey_y)) != 1)
+		goto err;
+*/
+	BN_free(x);
+	BN_free(y);
+
+err:
+	if (x != NULL)
+		BN_free(x);
+	if (y != NULL)
+		BN_free(y);
+
+	rc = key_write_filename(filename, key);
+	if (rc != 1) {
+		fprintf(stderr, "error saving key\n");
+		exit(1);
+	}
+
+	EC_KEY_free(key);
+
+	/*original main function
 	const char *filename;
 	EC_KEY *key;
 	int rc;
@@ -89,4 +180,6 @@ int main(int argc, char *argv[])
 	EC_KEY_free(key);
 
 	return 0;
+	*/
+	return 1;
 }

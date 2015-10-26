@@ -210,8 +210,8 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
                 n = n->parent; //continue backtracking
             }
         }
-        if (flag == 0) { 
-        	    printf("flag was raised\n");
+        if (flag == 0 && blocks_height != 0) { //ignore flag if genesis block bc no ancestors
+        	    printf("normal_tx.prev_transaction_hash exists as either the reward_tx or normal_tx of any ancestor blocks\n");
             return false;
         } 
     } //close this giant if block
@@ -314,28 +314,27 @@ void decrement_prev_transaction(struct balance *balances, hash_output hash, stru
 		transaction_hash(&iter->b.normal_tx, h);
 		if (byte32_cmp(h, hash) == 0) {
 			balances = balance_add(balances, &iter->b.normal_tx.dest_pubkey, -1);
-		}
+		} else {
 		iter = iter->parent;
+		}
 	}
 }
 
 /*STEP 2: mine a new block that transfers a coin from the weak public key to mykey.priv */
-
 /* Build on top of the head of the main chain. */
-block_init(&newblock, &headblock);
+//block_init(&newblock, &headblock);
 /* Give the reward to us. */
-transaction_set_dest_privkey(&newblock.reward_tx, mykey);
+//transaction_set_dest_privkey(&newblock.reward_tx, mykey);
 /* The last transaction was in block 4. */
-transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
+//transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
 /* Send it to us. */
-transaction_set_dest_privkey(&newblock.normal_tx, mykey);
+//transaction_set_dest_privkey(&newblock.normal_tx, mykey);
 /* Sign it with the guessed private key. */
-transaction_sign(&newblock.normal_tx, weakkey);
+//transaction_sign(&newblock.normal_tx, weakkey);
 /* Mine the new block. */
-block_mine(&newblock);
+//block_mine(&newblock);
 /* Save to a file. */
-block_write_filename(&newblock, "myblock1.blk");
-
+//block_write_filename(&newblock, "myblock1.blk");
 
 int main(int argc, char *argv[])
 {
