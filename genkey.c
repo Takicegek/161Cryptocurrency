@@ -132,8 +132,12 @@ int main(int argc, char *argv[])
 	printf("finished making EC_GROUP\n");
 
 	const EC_POINT *pubkey;
-	//pubkey = EC_KEY_get0_public_key(key);
-	pubkey = EC_POINT_new(EC_KEY_get0_group(key)); 
+
+	FILE *fp;
+	fp = fopen(filename, "r");
+
+	pubkey = EC_KEY_get0_public_key(key_read(fp)); //apparently this method only sets the private key
+	//need to first compute the public key
 	if (pubkey == NULL) {
 		EC_KEY_free(key);
 		printf("error in EC_POINT pubkey\n");
@@ -161,6 +165,7 @@ int main(int argc, char *argv[])
 	if (bn2bin(y, dest_pubkey_y, sizeof(dest_pubkey_y)) != 1)
 		goto err;
 */
+	fclose(fp);
 	BN_free(x);
 	BN_free(y);
 

@@ -68,21 +68,6 @@ void remove_blockchain_node(struct blockchain_node *head, struct blockchain_node
 	}
 }
 
-/* Iterates through a linked list of blockchain_nodes to find the maximum height. */
-uint32_t find_max_height(struct blockchain_node *head) {
-	struct blockchain_node *iter = head;
-	struct block *current;
-	uint32_t max_height = 0;
-	while (iter != NULL) {
-		current = &iter->b;
-		if (current->height > max_height) {
-			max_height = current->height;
-		}
-		iter = iter->next;
-	}
-	return max_height;
-}
-
 /* Returns a valid parent that matches the provided HASH value within the given list HEAD. Returns 
  * NULL if none is found. */
 struct blockchain_node *find_parent(struct block *child, struct blockchain_node *head) {
@@ -352,22 +337,29 @@ void decrement_prev_transaction(struct balance *balances, hash_output hash, stru
 	}
 }
 
-/*STEP 2: mine a new block that transfers a coin from the weak public key to mykey.priv */
+/* STEP 2: mine a new block that transfers a coin from the weak public key to mykey.priv
+ * Function that steals a coin from another transaction with a weak public key. Builds upon the 
+ * blockchain_node HEADBLOCK of the longest chain. */
 
-/* Build on top of the head of the main chain. */
-//block_init(&newblock, &headblock);
-/* Give the reward to us. */
-//transaction_set_dest_privkey(&newblock.reward_tx, mykey);
-/* The last transaction was in block 4. */
-//transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
-/* Send it to us. */
-//transaction_set_dest_privkey(&newblock.normal_tx, mykey);
-/* Sign it with the guessed private key. */
-//transaction_sign(&newblock.normal_tx, weakkey);
-/* Mine the new block. */
-//block_mine(&newblock);
-/* Save to a file. */
-//block_write_filename(&newblock, "myblock1.blk");
+void steal_block(struct blockchain_node headblock) {
+	struct block *newblock;
+	/* Build on top of the head of the main chain. */
+	block_init(&newblock, &headblock->b);
+	/* Give the reward to us. */
+	FILE *fp;
+	fp = fopen("")
+	//transaction_set_dest_privkey(&newblock.reward_tx, mykey);
+	/* The last transaction was in block 4. */
+	//transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
+	/* Send it to us. */
+	//transaction_set_dest_privkey(&newblock.normal_tx, mykey);
+	/* Sign it with the guessed private key. */
+	//transaction_sign(&newblock.normal_tx, generate_identical_key());
+	/* Mine the new block. */
+	//block_mine(&newblock);
+	/* Save to a file. */
+	//block_write_filename(&newblock, "myblock1.blk");
+}
 
 
 int main(int argc, char *argv[])
