@@ -341,13 +341,13 @@ void decrement_prev_transaction(struct balance *balances, hash_output hash, stru
  * Function that steals a coin from another transaction with a weak public key. Builds upon the 
  * blockchain_node HEADBLOCK of the longest chain. */
 
-void steal_block(struct blockchain_node headblock) {
-	struct block *newblock;
+//void steal_block(struct blockchain_node headblock) {
+//	struct block *newblock;
 	/* Build on top of the head of the main chain. */
-	block_init(&newblock, &headblock->b);
+//	block_init(&newblock, &headblock->b);
 	/* Give the reward to us. */
-	FILE *fp;
-	fp = fopen("")
+//	FILE *fp;
+//	fp = fopen("")
 	//transaction_set_dest_privkey(&newblock.reward_tx, mykey);
 	/* The last transaction was in block 4. */
 	//transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
@@ -359,8 +359,7 @@ void steal_block(struct blockchain_node headblock) {
 	//block_mine(&newblock);
 	/* Save to a file. */
 	//block_write_filename(&newblock, "myblock1.blk");
-}
-
+//}
 
 int main(int argc, char *argv[])
 {
