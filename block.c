@@ -136,10 +136,9 @@ void block_hash(const struct block *b, hash_output h)
 void block_mine(struct block *b)
 {
 	hash_output h;
-	block_hash(b, h);
-	/* TODO */
 	while(hash_output_is_below_target(h) == 0) {
 		b->nonce++;
+		block_hash(b, h);
 	}
 }
 

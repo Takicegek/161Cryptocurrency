@@ -4,6 +4,7 @@
 #include <stdbool.h>
 
 #include <openssl/ec.h>
+#include <openssl/objects.h>
 
 #include "block.h"
 #include "common.h"
@@ -23,6 +24,7 @@ const hash_output GENESIS_BLOCK_HASH = {
 struct blockchain_node {
 	struct blockchain_node *parent;
 	struct blockchain_node *next;
+	struct ecdsa_pubkey *transaction_parent_key;
 	struct block b;
 	bool is_valid;
 };
@@ -39,7 +41,6 @@ void save_block(struct blockchain_node *head, struct block *element, struct bloc
 	struct blockchain_node *iter = head;
 	if (iter == NULL) {
 		*list = new_node;
-		printf("Assigned head to first node.\n");
 	}
 	else {	
 		while(iter->next != NULL) {
@@ -84,7 +85,6 @@ struct blockchain_node *find_parent(struct block *child, struct blockchain_node 
 		}
 		iter = iter->next;
 	}
-	printf("No parent found.\n");
 	return NULL;
 }
 
@@ -118,36 +118,29 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
     struct block *bl_ptr = &node->b;
     block_hash(&node->b, h);
     uint32_t blocks_height = bl_ptr->height;
-    printf("Begin validifying process for block of height:%u\n", blocks_height);
-    
+
     if (blocks_height == 0 && byte32_cmp(GENESIS_BLOCK_HASH, h) != 0) {
-    	    printf("is the genesis block, but SHA256 hash isn't the right value\n");
 
         return false;
         //is the genesis block, but SHA256 hash isn't the right value
     } else if (blocks_height >= 1 && (node->parent == NULL || (node->parent->is_valid == false || node->parent->b.height != (blocks_height - 1)))) {
-    	    printf("its parent isn't valid or doesn't have a height that is 1 smaller\n");
 
         return false;
         //isn't the genesis block and its parent isn't valid or doesn't have a height that is 1 smaller
     } else if (hash_output_is_below_target(h) == 0) {
-    	    printf("hash of the block is >= TARGET_HASH\n");
 
         return false;
         //hash of the block is >= TARGET_HASH
     } else if (bl_ptr->reward_tx.height != blocks_height || bl_ptr->normal_tx.height != blocks_height) {
-    	    printf("height of either of the block's transactions aren't equal to the block's height\n");
 
         return false;
         //height of either of the block's transactions aren't equal to the block's height
     } else if (byte32_is_zero(bl_ptr->reward_tx.prev_transaction_hash) == 0 || byte32_is_zero(bl_ptr->reward_tx.src_signature.r) == 0 || byte32_is_zero(bl_ptr->reward_tx.src_signature.s) ==0) {
-           printf("reward_tx's prev_transaction_hash, src_signature.r, or src_signature.s are not all 0\n");
 
         return false;
         //reward_tx's prev_transaction_hash, src_signature.r, or src_signature.s are not all 0
     } else if (byte32_is_zero(bl_ptr->normal_tx.prev_transaction_hash) == 0) {
         //there is a normal transaction in the block, so we need to check a bunch more stuff:
-            printf("normal transaction found, checking more stuff.\n");
 
         struct blockchain_node *ancestor = node->parent;
         int flag = 0;
@@ -158,41 +151,25 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
         while (ancestor) { //while you haven't gone through all of the nodes
             transaction_hash(&(ancestor->b.reward_tx), r_tx);
             transaction_hash(&(ancestor->b.normal_tx), n_tx);
-                printf("start loop\n");
-
             
             if (byte32_cmp(n_tx, bl_ptr->normal_tx.prev_transaction_hash) == 0) {
                 //the transaction matches the normal_tx of this ancestor block
                 flag = 1;
-                    printf("matching normal transaction of ancestor found. height of ancestor:%u\n", ancestor->b.height);
+                node->transaction_parent_key = &ancestor->b.normal_tx.dest_pubkey;
 
-                printf("transaction verification output: %d\n", transaction_verify(&bl_ptr->normal_tx, &ancestor->b.normal_tx));
                 if (transaction_verify(&bl_ptr->normal_tx, &ancestor->b.normal_tx) != 1) {
-                	    printf("signature verification not successful.\n");
-
-                    if (transaction_verify(&bl_ptr->normal_tx, &ancestor->b.normal_tx) == -1) {
-                        printf("RUNTIME ERROR FOR transaction_verify\n");
-                    }
                     return false;
-
                     //signature on normal_tx isn't valid using the dest_pubkey of the previous transaction that has hash value normal_tx.prev_transaction_hash
                 }
                 
                 break;
                 
             } else if(byte32_cmp(r_tx, bl_ptr->normal_tx.prev_transaction_hash) == 0) {
-            	    printf("matching reward transaction of ancestor found. height of ancestor:%u\n", ancestor->b.height);
+            	//the transaction matches the reward_tx of this ancestor block -- do the same thing as before but with r_tx
+            	flag = 1;
+                node->transaction_parent_key = &ancestor->b.reward_tx.dest_pubkey;
 
-                //the transaction matches the reward_tx of this ancestor block -- do the same thing as before but with r_tx
-                flag = 1;
-
-                printf("transaction verification output: %d\n", transaction_verify(&bl_ptr->normal_tx, &ancestor->b.reward_tx));
                 if (transaction_verify(&bl_ptr->normal_tx, &ancestor->b.reward_tx) != 1) {
-                	    printf("signature verifiation not successful.\n");
-
-                    if (transaction_verify(&bl_ptr->normal_tx, &ancestor->b.reward_tx) == -1) {
-                        printf("RUNTIME ERROR FOR transaction_verify\n");
-                    }
                     return false;
                     //signature on normal_tx isn't valid using the dest_pubkey of the previous transaction that has hash value normal_tx.prev_transaction_hash
                 }
@@ -200,16 +177,13 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
                 break;
                 
             } else if (byte32_cmp(ancestor->b.normal_tx.prev_transaction_hash, bl_ptr->normal_tx.prev_transaction_hash) == 0) {
-            	    printf("coin already spent\n");
-
                 return false;
                 //this ancestor block has the same normal_tx.prev_transaction_hash, so the coin has already been spent
             } else {
                 ancestor = ancestor->parent; //continue backtracking
             }
         }
-        if (flag == 0 && blocks_height != 0) { 
-        	    printf("no ancestor found\n");
+        if (flag == 0 && blocks_height != 0) {
             return false;
         } 
     } //close this giant if block
@@ -220,11 +194,7 @@ bool blockchain_node_is_valid(struct blockchain_node *node) {
 /* Checks if a blockchain_node ELEMENT is valid and changes the is_valid field if it is.*/
 void validify_node(struct blockchain_node *element) {
 	if (blockchain_node_is_valid(element)) {
-		printf("valid\n");
 		element->is_valid = true;
-	}
-	else {
-		printf("not valid\n");
 	}
 }
 
@@ -244,8 +214,6 @@ struct blockchain_node *process_blockchain(struct blockchain_node *head) {
 		iter = iter->next;
 	}
 
-	printf("Done finding all parents.\n");
-
 	uint32_t curr_height = 0;
 	int flag = 1;
 	while (flag == 1) {
@@ -262,14 +230,12 @@ struct blockchain_node *process_blockchain(struct blockchain_node *head) {
 	}
 
 	uint32_t chain_height = curr_height - 2;
-	printf("Finished validifying all nodes. Longest chain is of height:%u\n", chain_height);
 
 	iter = head;
 	while (iter != NULL) {
 		current = &iter->b;
 		if (current->height == chain_height) {
 			if (check_chain(iter)) {
-				printf("Found end of chain.\n");
 				return iter;
 			}
 		}
@@ -319,59 +285,66 @@ static struct balance *balance_add(struct balance *balances,
 	return p;
 }
 
-/* Finds the previous transaction for a transaction HASH in the given blockchain_node list CHAIN and 
- * returns the public key that received transaction. */
-void decrement_prev_transaction(struct balance *balances, hash_output hash, struct blockchain_node *chain) {
-	struct blockchain_node *iter = chain;
-	hash_output h;
-	while (iter != NULL) {
-		transaction_hash(&iter->b.reward_tx, h);
-		if (byte32_cmp(h, hash) == 0) {
-			balances = balance_add(balances, &iter->b.reward_tx.dest_pubkey, -1);
-		}
-		transaction_hash(&iter->b.normal_tx, h);
-		if (byte32_cmp(h, hash) == 0) {
-			balances = balance_add(balances, &iter->b.normal_tx.dest_pubkey, -1);
-		}
-		iter = iter->parent;
+/* Inverts a linked list of blockchain_nodes at HEAD given the pointer to the pointer HEAD_POINTER. */
+void invert_list(struct blockchain_node *head, struct blockchain_node **head_pointer) {
+	struct blockchain_node *hold;
+	struct blockchain_node *new_list = NULL;
+	while (head != NULL) {
+		hold = head;
+		head = head->parent;
+		hold->parent = new_list;
+		new_list = hold;
 	}
+	*head_pointer = new_list;
 }
 
-/* STEP 2: mine a new block that transfers a coin from the weak public key to mykey.priv
- * Function that steals a coin from another transaction with a weak public key. Builds upon the 
- * blockchain_node HEADBLOCK of the longest chain. */
-
-//void steal_block(struct blockchain_node headblock) {
-//	struct block *newblock;
+/* STEP 2: Mine a new block that transfers a coin from the weak public key to mykey.priv
+ * Function that steals a coin from another transaction in FROMBLOCK with a weak public key and rewards it to they public
+ * key in mykey.priv. Builds upon the blockchain_node HEADBLOCK of the longest chain. Will steal from block 4 or block 5 
+ * depending on WHICH. */
+void steal_block(struct blockchain_node *headblock, struct blockchain_node *fromblock, int which) {
+	struct block newblock;
 	/* Build on top of the head of the main chain. */
-//	block_init(&newblock, &headblock->b);
+	block_init(&newblock, &headblock->b);
 	/* Give the reward to us. */
-//	FILE *fp;
-//	fp = fopen("")
-	//transaction_set_dest_privkey(&newblock.reward_tx, mykey);
+	FILE *my_key_fp = fopen("mykey.priv", "r");
+	transaction_set_dest_privkey(&newblock.reward_tx, key_read(my_key_fp));
+	fclose(my_key_fp);
 	/* The last transaction was in block 4. */
-	//transaction_set_prev_transaction(&newblock.normal_tx, &block4.normal_tx);
+	transaction_set_prev_transaction(&newblock.normal_tx, &fromblock->b.normal_tx);
 	/* Send it to us. */
-	//transaction_set_dest_privkey(&newblock.normal_tx, mykey);
+	my_key_fp = fopen("mykey.priv", "r");
+	transaction_set_dest_privkey(&newblock.normal_tx, key_read(my_key_fp));
+	fclose(my_key_fp);
 	/* Sign it with the guessed private key. */
-	//transaction_sign(&newblock.normal_tx, generate_identical_key());
+	FILE *guessed_key_fp;
+	if (which == 1) {
+		guessed_key_fp = fopen("copykey.priv", "r");
+	}
+	else {
+		guessed_key_fp = fopen("copykey2.priv", "r");
+	}
+	transaction_sign(&newblock.normal_tx, key_read(guessed_key_fp));
+	fclose(guessed_key_fp);
 	/* Mine the new block. */
-	//block_mine(&newblock);
+	block_mine(&newblock);
 	/* Save to a file. */
-	//block_write_filename(&newblock, "myblock1.blk");
-//}
+	if (which == 1) {
+		block_write_filename(&newblock, "myblock1.blk");
+	}
+	else {
+		block_write_filename(&newblock, "myblock2.blk");
+	}
+}
 
 int main(int argc, char *argv[])
 {
 	int i;
-	FILE *fp;
-	fp = fopen("Output.txt", "w");
 	struct blockchain_node *unsorted = NULL;
 	//struct blockchain_node *sorted_tree = NULL;
 
 	/* Read input block files. */
 	for (i = 1; i < argc; i++) {
-		printf("Current argv: %s\n", argv[i]);
 		char *filename;
 		struct block b;
 		int rc;
@@ -382,32 +355,39 @@ int main(int argc, char *argv[])
 			fprintf(stderr, "could not read %s\n", filename);
 			exit(1);
 		}
-
-			block_print(&b, fp);
 			save_block(unsorted, &b, &unsorted); // Save block to chain
-			printf("Block added.\n");
 	}
 
-	/*struct blockchain_node *node = unsorted; // for debugging
-	while(node->next != NULL) {
-		block_print(&node->b, fp);
-		node = node->next;
-	}*/
 	struct blockchain_node *longest = process_blockchain(unsorted);
-	printf("Finished processing. Longest chain has end block of height:%u\n", longest->b.height);
-	/*fprintf(fp, "\nThe block that corresponds to the longest valid chain is:\n");
-	block_print(&longest->b, fp);*/
-	fclose(fp);
+	if (longest == NULL) {
+		fprintf(stderr, "Error processing blocks.\n");
+		return 1;
+	}
+
+	// struct blockchain_node *st_headblock = longest; // Code for stealing blocks
+
+	invert_list(longest, &longest);
 
 	struct balance *balances = NULL, *p, *next;
 	while (longest != NULL) {
+		/*if (longest->b.height == 4) { // Code for stealing blocks
+			printf("Stealing first block at height = 4.\n");
+			steal_block(st_headblock, longest, 1);
+		}*/
+		/*if (longest->b.height == 5) { // Code for stealing blocks
+			printf("Stealing second block at height = 5.\n");
+			steal_block(st_headblock, longest, 2);
+		}*/
 		balances = balance_add(balances, &longest->b.reward_tx.dest_pubkey, 1); // Reward increment
-		if (byte32_is_zero(longest->b.normal_tx.prev_transaction_hash) != 1){
+		if (byte32_is_zero(longest->b.normal_tx.prev_transaction_hash) != 1) {
 			balances = balance_add(balances, &longest->b.normal_tx.dest_pubkey, 1); // Transaction increment
-			decrement_prev_transaction(balances, longest->b.normal_tx.prev_transaction_hash, longest); // Transaction decrement
+			if (&longest->transaction_parent_key != NULL) {
+				balances = balance_add(balances, longest->transaction_parent_key, -1); // Transaction decrement
+			}
 		}
 		longest = longest->parent;
 	}
+
 	/* Print out the list of balances. */
 	for (p = balances; p != NULL; p = next) {
 		next = p->next;
@@ -415,9 +395,11 @@ int main(int argc, char *argv[])
 		free(p);
 	}
 
-	struct blockchain_node *pointer; // Free memory from unsorted list
-	for (pointer = unsorted; pointer != NULL; pointer = pointer->next) {
-		free(pointer);
+	struct blockchain_node *hold;
+	while(unsorted) {
+		hold = unsorted;
+		unsorted = unsorted->next;
+		free(hold);
 	}
 
 	return 0;
