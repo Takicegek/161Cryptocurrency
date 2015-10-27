@@ -1,8 +1,12 @@
 1. The current Bitcoin difficulty is 60,883,825,480, according to https://bitcoinwisdom.com/bitcoin/difficulty. This was accessed on 10/21 at 2:19 PM.
 
-2. The time it takes to mine a block on our program is about 1 min.
+2. The time it takes to mine a block on our program is about 1 min. 
 
-3. Our TARGET_HASH has 6 leading zeros in hex. The current Bitcoin target hash has 16 leading zeros in hex. It would take 2^(10*4) times as many iterations to find a Bitcoin hash, so it would take 2^40 min or 763549741 days to find a Bitcoin hash if the speed was the same as with our program.
+3. Our program calculated 2^24 hashes in 1 min. The expected number of has iterations is:
+difficulty * 2^32 = 60,883,825,480 * 2^32
+(60,883,825,480 * 2^32)/(2^24/min)) = 60,883,825,480 * 2^8 min = 10,823,791,196 days
+
+However, on https://bitcoinwisdom.com/bitcoin/difficulty, it says that the expected Bitcoins mined per day for a 2.5GHz processer (like mine) is 0.00002065 BTC/day, which equates to 1 BTC in 48426 days. This is much, much faster than our program, suggesting that there are inefficiencies in our hash method, or that I am not using all the power of my processer.
 
 4. Expected number of hash iterations needed to mine a Bitcoin block = difficulty * 2^32
    So, 60,883,825,480 * 2^32 = 261494039291971502080
