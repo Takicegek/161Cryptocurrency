@@ -111,25 +111,28 @@ int main(int argc, char *argv[])
 	filename = argv[1];
 
 	//source for time in seconds: http://www.timeanddate.com/date/timezoneduration.html?d1=1&m1=1&y1=1970&h1=0&i1=0&s1=0
-	//estimated time is 1443700800, but start 1000 seconds before
-	int t = 1443700800 - 1000;
+	//estimated time is 1443700800, but start 14 hours before (in seconds)
+	int t = 1443700800 - 50400;
 
 	//CREATE TARGET KEY X AND Y (by converting)
 	BIGNUM *target_x = BN_new();
 	BIGNUM *target_y = BN_new();
+
 	if (target_x == NULL || target_y == NULL) {
 		printf("BIGNUM target errors for target_y or target_x \n");
 		BN_free(target_x);
 		BN_free(target_y);
 		exit(1);
 	}
-	char str_x[64] = "bd63383861d845b62637f221ca3b4cc21d1f82d5c0e018b8f2fc2906702c4f1b";
-	char str_y[64] = "17e6cb83581672fd7d690c5416a50d2a0aaf3d9ea961761ab7000140bea78218";
+
+	char str_y[64] = "17E6CB83581672FD7D690C5416A50D2A0AAF3D9EA961761AB7000140BEA78218";
+	BN_hex2bn(&target_y, str_y);
+
+	char str_x[64] = "BD63383861D845B62637F221CA3B4CC21D1F82D5C0E018B8F2FC2906702C4F1B";
 	BN_hex2bn(&target_x, str_x);
-	BN_hex2bn(&target_x, str_y);
 
 	//GENERATE KEY FOR THE FIRST TIME + WRITE TO FILE
-	key = generate_copy_key_timebased(t-1000);
+	key = generate_copy_key_timebased(t);
 	rc = key_write_filename(filename, key);
 	if (rc != 1) {
 		fprintf(stderr, "error saving key\n");
@@ -148,7 +151,7 @@ int main(int argc, char *argv[])
 	}
 
 	const EC_GROUP *ec_group = EC_GROUP_new_by_curve_name(EC_GROUP_NID);
-	printf("finished making EC_GROUP\n");
+	//printf("finished making EC_GROUP\n");
 
 	const EC_POINT *pubkey;
 
@@ -162,7 +165,7 @@ int main(int argc, char *argv[])
 		exit(1);
 	}
 
-	printf("finished making EC_POINT, got to before call function\n");
+	//printf("finished making EC_POINT, got to before call function\n");
 
 	int get_pt_result = 1000;
  	get_pt_result = EC_POINT_get_affine_coordinates_GFp(ec_group, pubkey, x, y, NULL);
@@ -173,17 +176,34 @@ int main(int argc, char *argv[])
 		EC_KEY_free(key);
 		exit(1);
 	} else {
-		printf("got here, right before printing\n");
-        BN_print_fp(stdout, x);
-        putc('\n', stdout);
-        BN_print_fp(stdout, y);
-        putc('\n', stdout);
+		//printf("got here, right before printing\n");
+		printf("X coordinates are:\n");
+		BN_print_fp(stdout, x);
+	    putc('\n', stdout);
+	    BN_print_fp(stdout, target_x);
+	    putc('\n', stdout);
+
+		printf("Y coordinates are:\n");
+	     BN_print_fp(stdout, y);
+	     putc('\n', stdout);
+	     BN_print_fp(stdout, target_y);
+	     putc('\n', stdout);
+	     putc('\n', stdout);
     }
 
     //CHECK IF THE KEY IS WHAT WE WANT, AND IF NOT, KEEP LOOPING AND CHECKING
-	while (BN_cmp(x, str_x) != 0) || BN_cmp(y, str_y) != 0) {
-		
+    int x_cmp_result = BN_cmp(x, target_x);
+    int y_cmp_result = BN_cmp(y, target_y);
+
+	while (x_cmp_result != 0 || y_cmp_result != 0) { 
 		fclose(fp);
+		t = t+1;
+
+		if (t == 1443700800 + 50400) {
+			//already searched from 14 hours before target time to 14 hours after
+			printf("COULDN'T FIND :(\n");
+			exit(1);
+		}
 
 		key = generate_copy_key_timebased(t);
 		if (key == NULL) {
@@ -205,9 +225,12 @@ int main(int argc, char *argv[])
 			exit(1);
 		}
 
-		printf("finished making EC_POINT, got to before call function in while\n");
+		//printf("finished making EC_POINT, got to before call function in while\n");
 
-		int get_pt_result = 1000;
+		get_pt_result = 1000; //reinitialize
+		BN_clear(x);
+		BN_clear(y);
+
 	 	get_pt_result = EC_POINT_get_affine_coordinates_GFp(ec_group, pubkey, x, y, NULL);
 		if (get_pt_result != 1) {
 			printf("error with the big function in while\n");
@@ -216,13 +239,27 @@ int main(int argc, char *argv[])
 			EC_KEY_free(key);
 			exit(1);
 		} else {
-			printf("got here, right before printing in while\n");
+			//printf("got here, right before printing in while\n");
+			printf("X coordinates are:\n");
 	        BN_print_fp(stdout, x);
 	        putc('\n', stdout);
+	        BN_print_fp(stdout, target_x);
+	        putc('\n', stdout);
+
+	        printf("Y coordinates are:\n");
 	        BN_print_fp(stdout, y);
 	        putc('\n', stdout);
+	        BN_print_fp(stdout, target_y);
+	        putc('\n', stdout);
+	        putc('\n', stdout);
+
 	    }
+
+	    //set up comparison again for new key
+	    x_cmp_result = BN_cmp(x, target_x);
+    	y_cmp_result = BN_cmp(y, target_y);
 	} //closes while loop
+	
 
 	printf("yay got the right key!!! finishing up...\n");
 
