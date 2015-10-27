@@ -112,7 +112,9 @@ int main(int argc, char *argv[])
 
 	//source for time in seconds: http://www.timeanddate.com/date/timezoneduration.html?d1=1&m1=1&y1=1970&h1=0&i1=0&s1=0
 	//estimated time is 1443700800, but start 14 hours before (in seconds)
-	int t = 1443700800 - 50400;
+	//int t = 1443700800 - 50400;
+	//FOUND THE RIGHT KEY AT 1443701272 SECONDS
+	int t = 1443701272;
 
 	//CREATE TARGET KEY X AND Y (by converting)
 	BIGNUM *target_x = BN_new();
@@ -196,6 +198,7 @@ int main(int argc, char *argv[])
     int y_cmp_result = BN_cmp(y, target_y);
 
 	while (x_cmp_result != 0 || y_cmp_result != 0) { 
+		printf("in while\n");
 		fclose(fp);
 		t = t+1;
 
@@ -240,7 +243,7 @@ int main(int argc, char *argv[])
 			exit(1);
 		} else {
 			//printf("got here, right before printing in while\n");
-			printf("X coordinates are:\n");
+			printf("X coordinates are with time %d:\n", t);
 	        BN_print_fp(stdout, x);
 	        putc('\n', stdout);
 	        BN_print_fp(stdout, target_x);
@@ -260,8 +263,8 @@ int main(int argc, char *argv[])
     	y_cmp_result = BN_cmp(y, target_y);
 	} //closes while loop
 	
-
 	printf("yay got the right key!!! finishing up...\n");
+	printf("time is: %d\n", t);
 
 	fclose(fp);
 	BN_free(x);
