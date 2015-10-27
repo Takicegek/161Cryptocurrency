@@ -1,3 +1,13 @@
 1. The current Bitcoin difficulty is 60,883,825,480, according to https://bitcoinwisdom.com/bitcoin/difficulty. This was accessed on 10/21 at 2:19 PM.
 
 2. 
+
+3. 
+
+4. Expected number of hash iterations needed to mine a Bitcoin block = difficulty * 2^32
+   So, 60,883,825,480 * 2^32 = 261494039291971502080
+   According to the question, this number of hash iterations would take on average 10 minutes.
+   It would take (10 * 2^56)/261494039291971502080
+   = 720575940379279360 / 261494039291971502080
+   = 0.00275561134 minutes
+   = 0.1653366804 seconds
